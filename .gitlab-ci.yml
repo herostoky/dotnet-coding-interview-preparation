@@ -1,0 +1,48 @@
+stages:
+  - zip
+  - clone
+
+variables:
+  ARCHIVE_FILE_NAME: updates-v$CI_PIPELINE_IID.tar.gz
+
+zip-gitlab-project:
+  stage: zip
+  script:
+    - mkdir -p ./archives/
+    - tar --exclude='./.git' --exclude='./archives' -cvzf "/tmp/$ARCHIVE_FILE_NAME" .
+    - ls -lhart
+    - mv "/tmp/${ARCHIVE_FILE_NAME}" ./archives/
+  artifacts:
+    paths:
+      - ./archives/
+
+clone-github-project:
+  stage: clone
+  script:
+    - ls -lhart
+    - CURRENT_ARCHIVE_PATH=$(pwd)
+    - echo "${CURRENT_ARCHIVE_PATH}/archives/$ARCHIVE_FILE_NAME"
+    - mkdir "temporary-github-folder"
+    - cd "temporary-github-folder"
+    - git clone $GITHUB_REPO_URL
+    - ls -lhart
+    - GITHUB_PROJECT_PATH=$GITHUB_REPO_URL
+    - GITHUB_PROJECT_PATH=${GITHUB_PROJECT_PATH##*/}
+    - GITHUB_PROJECT_PATH=${GITHUB_PROJECT_PATH%.*}
+    - echo $GITHUB_PROJECT_PATH
+    - tar -xvf "${CURRENT_ARCHIVE_PATH}/archives/$ARCHIVE_FILE_NAME" -C "$GITHUB_PROJECT_PATH"
+    - ls -lhart $GITHUB_PROJECT_PATH
+    - cd $GITHUB_PROJECT_PATH
+    - git status
+    - git remote set-url origin "$GITHUB_REPO_URL_AUTH"
+    - git config user.email "$GITHUB_REPO_USER_EMAIL"
+    - git config user.name "$GITHUB_REPO_USER_NAME"
+    - git add .
+    - git commit -m "Update:$ARCHIVE_FILE_NAME"
+    - git remote -v
+    - git push origin
+  when: always
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+   
